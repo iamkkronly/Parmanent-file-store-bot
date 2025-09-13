@@ -3,18 +3,12 @@
 
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from telegram.error import BadRequest
 
 # ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
-DB_CHANNEL_ID = -1002933239181  # Hardcoded DB channel ID
+DB_CHANNEL_ID = -1002933239181  # Predefined DB channel
 PROMO_TEXT = (
     "\n\n🌟 Kaustav Ray | KR Republic\n"
     "Join here: @filestore4u | @freemovie5u"
@@ -29,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # -------- COMMAND HANDLERS --------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command and optional deep link"""
+    """Handle /start command with optional deep link"""
     args = context.args
     if not args:
         await update.message.reply_text(
@@ -40,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Deep linking: retrieve file from DB channel
     msg_id = args[0]
     try:
-        await context.bot.forward_message(
+        await context.bot.copy_message(
             chat_id=update.message.chat_id,
             from_chat_id=DB_CHANNEL_ID,
             message_id=int(msg_id)
@@ -54,21 +48,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # -------- MESSAGE HANDLER --------
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Forward any user message to DB channel and return permanent link"""
+    """Copy any user message to DB channel anonymously and return permanent link"""
     try:
-        forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
-        msg_id = forwarded_msg.message_id
+        copied_msg = await context.bot.copy_message(
+            chat_id=DB_CHANNEL_ID,
+            from_chat_id=update.message.chat_id,
+            message_id=update.message.message_id
+        )
+        msg_id = copied_msg.message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
 
-        # Send as inline button
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("📂 Get File", url=link)]]
-        )
+        # Send inline button link to user
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("📂 Get File", url=link)]])
         await update.message.reply_text(
             f"✅ Permanent Link Created:{PROMO_TEXT}", reply_markup=keyboard
         )
     except BadRequest as e:
-        await update.message.reply_text(f"⚠️ Failed to forward message: {e}{PROMO_TEXT}")
+        await update.message.reply_text(f"⚠️ Failed to copy message: {e}{PROMO_TEXT}")
     except Exception as e:
         await update.message.reply_text(f"⚠️ An unexpected error occurred.{PROMO_TEXT}")
         logger.error(e)
