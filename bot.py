@@ -3,13 +3,19 @@
 
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 from telegram.error import BadRequest
 
 # ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
 ADMIN_IDS = [7307633923]
-DB_CHANNEL_ID = None  # Will be set by /setdb command
+DB_CHANNEL_ID = None  # set with /setdb
 # ----------------------------------------
 
 logging.basicConfig(
@@ -18,9 +24,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --------- COMMAND HANDLERS ---------
+# -------- COMMAND HANDLERS --------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start command for users"""
     await update.message.reply_text(
         "👋 Welcome! Send me any file or message and I'll give you a permanent link.\n\n"
         "Commands:\n"
@@ -29,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Set the DB channel where files/messages will be stored"""
+    """Set the DB channel (admin only)"""
     global DB_CHANNEL_ID
     user_id = update.message.from_user.id
     if user_id not in ADMIN_IDS:
@@ -45,46 +50,41 @@ async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Invalid channel ID.")
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show bot statistics (admin only)"""
+    """Show DB channel info (admin only)"""
     user_id = update.message.from_user.id
     if user_id not in ADMIN_IDS:
         await update.message.reply_text("⚠️ You are not allowed to see stats.")
         return
     try:
         chat = await context.bot.get_chat(DB_CHANNEL_ID)
-        members = await chat.get_members_count()
-        await update.message.reply_text(f"DB Channel Members: {members}")
+        # Only basic info is available in v20+
+        await update.message.reply_text(
+            f"DB Channel Info:\nTitle: {chat.title}\nType: {chat.type}"
+        )
     except Exception as e:
         await update.message.reply_text("⚠️ Failed to fetch stats.")
         logger.error(e)
 
-# -------- FILE / MESSAGE HANDLER --------
+# -------- MESSAGE HANDLER --------
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Forward any user message to the DB channel and send back a permanent link
-    """
+    """Forward any user message to DB channel and return permanent link"""
     global DB_CHANNEL_ID
     if DB_CHANNEL_ID is None:
         await update.message.reply_text("⚠️ DB channel is not set. Use /setdb first.")
         return
     try:
-        # Forward message to DB channel
         forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
         msg_id = forwarded_msg.message_id
-
-        # Generate permanent link using bot username and message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
         await update.message.reply_text(f"✅ Permanent Link:\n{link}")
-
     except BadRequest as e:
         await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
     except Exception as e:
         await update.message.reply_text("⚠️ An unexpected error occurred.")
         logger.error(e)
 
-# -------- MAIN FUNCTION --------
+# -------- MAIN --------
 def main():
-    """Start the bot"""
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Command handlers
@@ -92,8 +92,8 @@ def main():
     app.add_handler(CommandHandler("setdb", setdb))
     app.add_handler(CommandHandler("stats", stats))
 
-    # Message handler - catches everything else (files, text, media, etc.)
-    app.add_handler(MessageHandler(lambda msg: True, save_message))
+    # Catch-all handler for all messages/files
+    app.add_handler(MessageHandler(filters.ALL, save_message))
 
     logger.info("Bot started...")
     app.run_polling(poll_interval=1, timeout=10, drop_pending_updates=True)
