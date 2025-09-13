@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # -------- COMMAND HANDLERS --------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command with optional deep link"""
+    """Handle /start command and optional deep link"""
     args = context.args
     if not args:
         await update.message.reply_text(
@@ -63,8 +63,10 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("📂 Get File", url=link),
             InlineKeyboardButton("🔗 Copy Link", url=link)
         ]])
+        # Send both buttons and plain link text below
         await update.message.reply_text(
-            f"✅ Permanent Link Created:{PROMO_TEXT}", reply_markup=keyboard
+            f"✅ Permanent Link Created:{PROMO_TEXT}\n\nDirect Link: {link}", 
+            reply_markup=keyboard
         )
     except BadRequest as e:
         await update.message.reply_text(f"⚠️ Failed to copy message: {e}{PROMO_TEXT}")
