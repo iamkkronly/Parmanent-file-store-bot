@@ -9,7 +9,7 @@ This bot saves files sent to it and generates permanent sharable links.
 Features:
 - Supports documents, videos, audios, photos, and animations.
 - Returns a permanent link after storing the file.
-- Built with python-telegram-bot v20+ (async).
+- Built with python-telegram-bot v20.8 (async).
 - Includes error handling and logging.
 """
 
@@ -98,11 +98,11 @@ def main():
     # File handler (documents, videos, audios, photos, animations)
     app.add_handler(
         MessageHandler(
-            filters.Document.ALL
-            | filters.VideoFile.ALL
-            | filters.AudioFile.ALL
-            | filters.Photo.ALL
-            | filters.Animation.ALL,
+            filters.DOCUMENT
+            | filters.VIDEO
+            | filters.AUDIO
+            | filters.PHOTO
+            | filters.ANIMATION,
             save_file,
         )
     )
