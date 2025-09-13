@@ -14,8 +14,7 @@ from telegram.error import BadRequest
 
 # ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
-ADMIN_IDS = [7307633923]
-DB_CHANNEL_ID = None  # set via /setdb
+DB_CHANNEL_ID = -1002933239181  # Hardcoded DB channel ID
 # ----------------------------------------
 
 logging.basicConfig(
@@ -37,7 +36,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Deep linking: retrieve file from DB channel
     msg_id = args[0]
     try:
-        msg = await context.bot.forward_message(
+        await context.bot.forward_message(
             chat_id=update.message.chat_id, 
             from_chat_id=DB_CHANNEL_ID, 
             message_id=int(msg_id)
@@ -48,44 +47,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ An unexpected error occurred.")
         logger.error(e)
 
-async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Set the DB channel (admin only)"""
-    global DB_CHANNEL_ID
-    user_id = update.message.from_user.id
-    if user_id not in ADMIN_IDS:
-        await update.message.reply_text("⚠️ You are not allowed to set the DB channel.")
-        return
-    if len(context.args) != 1:
-        await update.message.reply_text("Usage: /setdb <channel_id>")
-        return
-    try:
-        DB_CHANNEL_ID = int(context.args[0])
-        await update.message.reply_text(f"✅ DB channel set to `{DB_CHANNEL_ID}`")
-    except ValueError:
-        await update.message.reply_text("⚠️ Invalid channel ID.")
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show DB channel info (admin only)"""
-    user_id = update.message.from_user.id
-    if user_id not in ADMIN_IDS:
-        await update.message.reply_text("⚠️ You are not allowed to see stats.")
-        return
-    try:
-        chat = await context.bot.get_chat(DB_CHANNEL_ID)
-        await update.message.reply_text(
-            f"DB Channel Info:\nTitle: {chat.title}\nType: {chat.type}"
-        )
-    except Exception as e:
-        await update.message.reply_text("⚠️ Failed to fetch stats.")
-        logger.error(e)
-
 # -------- MESSAGE HANDLER --------
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Forward any user message to DB channel and return permanent link"""
-    global DB_CHANNEL_ID
-    if DB_CHANNEL_ID is None:
-        await update.message.reply_text("⚠️ DB channel is not set. Use /setdb first.")
-        return
     try:
         forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
         msg_id = forwarded_msg.message_id
@@ -110,8 +74,6 @@ def main():
 
     # Command handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("setdb", setdb))
-    app.add_handler(CommandHandler("stats", stats))
 
     # Catch-all handler for all messages/files
     app.add_handler(MessageHandler(filters.ALL, save_message))
