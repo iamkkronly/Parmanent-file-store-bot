@@ -29,7 +29,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if not args:
         await update.message.reply_text(
-            "👋 Send me any file and I will create a permanent link for it!"
+            "👋 
+            Send me any file and I will create a permanent link for it!
+            Kaustav Ray                                                         KR Republic                                                      Join here: @filestore4u     @freemovie5u"
         )
         return
 
@@ -60,7 +62,8 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [[InlineKeyboardButton("📂 Get File", url=link)]]
         )
         await update.message.reply_text(
-            f"✅ Permanent Link Created:", reply_markup=keyboard
+            f"Kaustav Ray                                                         KR Republic                                                      Join here: @filestore4u     @freemovie5u
+            ✅ Permanent Link Created:", reply_markup=keyboard
         )
     except BadRequest as e:
         await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
