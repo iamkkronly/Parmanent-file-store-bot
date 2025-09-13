@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -15,7 +15,7 @@ from telegram.error import BadRequest
 # ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
 ADMIN_IDS = [7307633923]
-DB_CHANNEL_ID = None  # set with /setdb
+DB_CHANNEL_ID = None  # set via /setdb
 # ----------------------------------------
 
 logging.basicConfig(
@@ -26,12 +26,27 @@ logger = logging.getLogger(__name__)
 
 # -------- COMMAND HANDLERS --------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Welcome! Send me any file or message and I'll give you a permanent link.\n\n"
-        "Commands:\n"
-        "/setdb <channel_id> - Set DB channel (admin only)\n"
-        "/stats - Show bot stats (admin only)"
-    )
+    """Handle /start command and optional deep link"""
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "👋 Send me any file and I will create a permanent link for it!"
+        )
+        return
+
+    # Deep linking: retrieve file from DB channel
+    msg_id = args[0]
+    try:
+        msg = await context.bot.forward_message(
+            chat_id=update.message.chat_id, 
+            from_chat_id=DB_CHANNEL_ID, 
+            message_id=int(msg_id)
+        )
+    except BadRequest:
+        await update.message.reply_text("⚠️ Failed to retrieve file from DB channel.")
+    except Exception as e:
+        await update.message.reply_text("⚠️ An unexpected error occurred.")
+        logger.error(e)
 
 async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set the DB channel (admin only)"""
@@ -57,7 +72,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         chat = await context.bot.get_chat(DB_CHANNEL_ID)
-        # Only basic info is available in v20+
         await update.message.reply_text(
             f"DB Channel Info:\nTitle: {chat.title}\nType: {chat.type}"
         )
@@ -76,7 +90,14 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
         msg_id = forwarded_msg.message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
-        await update.message.reply_text(f"✅ Permanent Link:\n{link}")
+
+        # Optional: send as inline button for convenience
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("📂 Get File", url=link)]]
+        )
+        await update.message.reply_text(
+            f"✅ Permanent Link Created:", reply_markup=keyboard
+        )
     except BadRequest as e:
         await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
     except Exception as e:
