@@ -2,13 +2,8 @@
 # Licensed under the MIT License.
 
 import logging
-from telegram import Update, ChatPermissions
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-)
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes
 from telegram.error import BadRequest
 
 # ---------------- CONFIG ----------------
@@ -25,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 # --------- COMMAND HANDLERS ---------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start command for users"""
     await update.message.reply_text(
         "👋 Welcome! Send me any file or message and I'll give you a permanent link.\n\n"
         "Commands:\n"
@@ -64,16 +60,22 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # -------- FILE / MESSAGE HANDLER --------
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Forward any message to DB channel and return a permanent link"""
+    """
+    Forward any user message to the DB channel and send back a permanent link
+    """
     global DB_CHANNEL_ID
     if DB_CHANNEL_ID is None:
         await update.message.reply_text("⚠️ DB channel is not set. Use /setdb first.")
         return
     try:
+        # Forward message to DB channel
         forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
         msg_id = forwarded_msg.message_id
+
+        # Generate permanent link using bot username and message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
         await update.message.reply_text(f"✅ Permanent Link:\n{link}")
+
     except BadRequest as e:
         await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
     except Exception as e:
@@ -82,6 +84,7 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # -------- MAIN FUNCTION --------
 def main():
+    """Start the bot"""
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Command handlers
@@ -89,7 +92,7 @@ def main():
     app.add_handler(CommandHandler("setdb", setdb))
     app.add_handler(CommandHandler("stats", stats))
 
-    # Message handler - handles all messages
+    # Message handler - catches everything else (files, text, media, etc.)
     app.add_handler(MessageHandler(lambda msg: True, save_message))
 
     logger.info("Bot started...")
