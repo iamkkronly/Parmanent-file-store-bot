@@ -2,13 +2,7 @@
 # Licensed under the MIT License.
 
 """
-Telegram Permanent File Store Bot
-----------------------------------
-- Stores uploaded files to a private DB channel.
-- Generates permanent shareable links using message_id.
-- Fetches and resends files when a user opens the link.
-
-Author: Kaustav Ray
+Telegram Permanent File Store Bot (Fixed Filters)
 """
 
 import logging
@@ -26,15 +20,11 @@ from telegram.ext import (
 # CONFIG
 # ==========================
 
-# ✅ Hardcoded & obfuscated bot token (base64 encoded)
 TOKEN = base64.b64decode(
     "ODI3NTAyNTQwMDpBQUVKYV9vZ2hLek1hMDZ4VlhWMkc3OE5vSnpNemxDczdSSQ=="
 ).decode("utf-8")
 
-# ✅ Your Telegram admin ID
 ADMIN_ID = 7307633923
-
-# ✅ Storage for DB channel ID (in memory for simplicity)
 DB_CHANNEL_ID = None
 
 # ==========================
@@ -52,7 +42,6 @@ logger = logging.getLogger(__name__)
 # ==========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command and deep-linking with message_id."""
     args = context.args
     if not args:
         await update.message.reply_text(
@@ -60,7 +49,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # If started with a file reference (message_id)
     file_msg_id = args[0]
     if not file_msg_id.isdigit():
         await update.message.reply_text("❌ Invalid link parameter.")
@@ -84,7 +72,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Set the DB channel ID (admin only)."""
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("❌ You are not authorized to use this command.")
         return
@@ -99,7 +86,6 @@ async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save uploaded files to DB channel and return permanent link."""
     global DB_CHANNEL_ID
     if not DB_CHANNEL_ID:
         await update.message.reply_text("⚠️ DB channel not set. Ask the admin to run /setdb.")
@@ -107,17 +93,11 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     file_message = update.message
     try:
-        # Forward file to DB channel
         sent = await file_message.forward(chat_id=DB_CHANNEL_ID)
-
-        # Generate permanent link with message_id
         bot_username = (await context.bot.get_me()).username
         link = f"https://t.me/{bot_username}?start={sent.message_id}"
 
-        # Reply to user with link
-        kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔗 Open File", url=link)]]
-        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Open File", url=link)]])
         await update.message.reply_text(
             f"✅ File stored successfully!\nHere’s your permanent link:\n{link}",
             reply_markup=kb,
@@ -132,19 +112,18 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================
 
 def main():
-    """Run the bot with stable polling."""
     app = Application.builder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("setdb", setdb))
 
-    # File handler
     app.add_handler(
-        MessageHandler(filters.Document.ALL | filters.Video.ALL | filters.Audio.ALL | filters.Photo.ALL, handle_file)
+        MessageHandler(
+            filters.Document.ALL | filters.VIDEO | filters.AUDIO | filters.PHOTO,
+            handle_file,
+        )
     )
 
-    # Stable polling
     app.run_polling(poll_interval=1, timeout=10, drop_pending_updates=True)
 
 
