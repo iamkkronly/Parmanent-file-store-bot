@@ -29,7 +29,7 @@ from telegram.ext import (
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
 BASE_URL = "https://t.me/{username}?start="  # Format for sharable link
 
-# Enable logging for debugging in GitHub Actions
+# Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
@@ -63,7 +63,7 @@ async def save_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif message.audio:
         file_obj = message.audio
     elif message.photo:
-        file_obj = message.photo[-1]  # highest resolution photo
+        file_obj = message.photo[-1]  # best quality photo
     elif message.animation:
         file_obj = message.animation
 
@@ -71,7 +71,7 @@ async def save_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text("⚠️ Unsupported file type.")
         return
 
-    # Get file ID (permanent reference)
+    # Get file ID
     file_id = file_obj.file_id
     sharable_link = f"{BASE_URL.format(username=context.bot.username)}{file_id}"
 
@@ -98,9 +98,9 @@ def main():
     # File handler (documents, videos, audios, photos, animations)
     app.add_handler(
         MessageHandler(
-            filters.DOCUMENT
-            | filters.VIDEO
-            | filters.AUDIO
+            filters.Document.ALL
+            | filters.Video.ALL
+            | filters.Audio.ALL
             | filters.PHOTO
             | filters.ANIMATION,
             save_file,
