@@ -15,6 +15,10 @@ from telegram.error import BadRequest
 # ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
 DB_CHANNEL_ID = -1002933239181  # Hardcoded DB channel ID
+PROMO_TEXT = (
+    "\n\n🌟 Kaustav Ray | KR Republic\n"
+    "Join here: @filestore4u | @freemovie5u"
+)
 # ----------------------------------------
 
 logging.basicConfig(
@@ -29,9 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if not args:
         await update.message.reply_text(
-            "👋 
-            Send me any file and I will create a permanent link for it!
-            Kaustav Ray                                                         KR Republic                                                      Join here: @filestore4u     @freemovie5u"
+            f"👋 Send me any file and I will create a permanent link for it!{PROMO_TEXT}"
         )
         return
 
@@ -39,14 +41,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_id = args[0]
     try:
         await context.bot.forward_message(
-            chat_id=update.message.chat_id, 
-            from_chat_id=DB_CHANNEL_ID, 
+            chat_id=update.message.chat_id,
+            from_chat_id=DB_CHANNEL_ID,
             message_id=int(msg_id)
         )
+        await update.message.reply_text(PROMO_TEXT)
     except BadRequest:
-        await update.message.reply_text("⚠️ Failed to retrieve file from DB channel.")
+        await update.message.reply_text(f"⚠️ Failed to retrieve file from DB channel.{PROMO_TEXT}")
     except Exception as e:
-        await update.message.reply_text("⚠️ An unexpected error occurred.")
+        await update.message.reply_text(f"⚠️ An unexpected error occurred.{PROMO_TEXT}")
         logger.error(e)
 
 # -------- MESSAGE HANDLER --------
@@ -57,18 +60,17 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg_id = forwarded_msg.message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
 
-        # Optional: send as inline button for convenience
+        # Send as inline button
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📂 Get File", url=link)]]
         )
         await update.message.reply_text(
-            f"Kaustav Ray                                                         KR Republic                                                      Join here: @filestore4u     @freemovie5u
-            ✅ Permanent Link Created:", reply_markup=keyboard
+            f"✅ Permanent Link Created:{PROMO_TEXT}", reply_markup=keyboard
         )
     except BadRequest as e:
-        await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
+        await update.message.reply_text(f"⚠️ Failed to forward message: {e}{PROMO_TEXT}")
     except Exception as e:
-        await update.message.reply_text("⚠️ An unexpected error occurred.")
+        await update.message.reply_text(f"⚠️ An unexpected error occurred.{PROMO_TEXT}")
         logger.error(e)
 
 # -------- MAIN --------
