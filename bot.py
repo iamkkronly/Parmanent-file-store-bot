@@ -1,119 +1,99 @@
 # © 2025 Kaustav Ray. All rights reserved.
 # Licensed under the MIT License.
 
-"""
-Permanent File Store Bot
-------------------------
-This bot saves files sent to it and generates permanent sharable links.
-
-Features:
-- Supports documents, videos, audios, photos, and animations.
-- Returns a permanent link after storing the file.
-- Built with python-telegram-bot v20.8 (async).
-- Includes error handling and logging.
-"""
-
 import logging
-from telegram import Update
+from telegram import Update, ChatPermissions
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    filters,
 )
+from telegram.error import BadRequest
 
-# ==============================
-# 🔑 Bot Configuration
-# ==============================
+# ---------------- CONFIG ----------------
 BOT_TOKEN = "8275025400:AAEyu7Rb8h2bnDGOfBf336yMO5bzFSrS8V8"
-BASE_URL = "https://t.me/{username}?start="  # Format for sharable link
+ADMIN_IDS = [7307633923]
+DB_CHANNEL_ID = None  # Will be set by /setdb command
+# ----------------------------------------
 
-# Enable logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-
-# ==============================
-# 📌 Handlers
-# ==============================
+# --------- COMMAND HANDLERS ---------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send a welcome message when the bot is started."""
     await update.message.reply_text(
-        "👋 Welcome!\n\nSend me a file (document, video, audio, or photo), "
-        "and I'll give you a permanent sharable link."
+        "👋 Welcome! Send me any file or message and I'll give you a permanent link.\n\n"
+        "Commands:\n"
+        "/setdb <channel_id> - Set DB channel (admin only)\n"
+        "/stats - Show bot stats (admin only)"
     )
 
-
-async def save_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Save the uploaded file and return a sharable link.
-    Telegram file IDs are permanent, so we generate links using them.
-    """
-    message = update.message
-    file_obj = None
-
-    # Pick file depending on type
-    if message.document:
-        file_obj = message.document
-    elif message.video:
-        file_obj = message.video
-    elif message.audio:
-        file_obj = message.audio
-    elif message.photo:
-        file_obj = message.photo[-1]  # best quality photo
-    elif message.animation:
-        file_obj = message.animation
-
-    if not file_obj:
-        await message.reply_text("⚠️ Unsupported file type.")
+async def setdb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set the DB channel where files/messages will be stored"""
+    global DB_CHANNEL_ID
+    user_id = update.message.from_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⚠️ You are not allowed to set the DB channel.")
         return
+    if len(context.args) != 1:
+        await update.message.reply_text("Usage: /setdb <channel_id>")
+        return
+    try:
+        DB_CHANNEL_ID = int(context.args[0])
+        await update.message.reply_text(f"✅ DB channel set to `{DB_CHANNEL_ID}`")
+    except ValueError:
+        await update.message.reply_text("⚠️ Invalid channel ID.")
 
-    # Get file ID
-    file_id = file_obj.file_id
-    sharable_link = f"{BASE_URL.format(username=context.bot.username)}{file_id}"
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show bot statistics (admin only)"""
+    user_id = update.message.from_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("⚠️ You are not allowed to see stats.")
+        return
+    try:
+        chat = await context.bot.get_chat(DB_CHANNEL_ID)
+        members = await chat.get_members_count()
+        await update.message.reply_text(f"DB Channel Members: {members}")
+    except Exception as e:
+        await update.message.reply_text("⚠️ Failed to fetch stats.")
+        logger.error(e)
 
-    await message.reply_text(
-        f"✅ File saved!\n\n🔗 Permanent Link:\n{sharable_link}"
-    )
+# -------- FILE / MESSAGE HANDLER --------
+async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Forward any message to DB channel and return a permanent link"""
+    global DB_CHANNEL_ID
+    if DB_CHANNEL_ID is None:
+        await update.message.reply_text("⚠️ DB channel is not set. Use /setdb first.")
+        return
+    try:
+        forwarded_msg = await update.message.forward(chat_id=DB_CHANNEL_ID)
+        msg_id = forwarded_msg.message_id
+        link = f"https://t.me/{context.bot.username}?start={msg_id}"
+        await update.message.reply_text(f"✅ Permanent Link:\n{link}")
+    except BadRequest as e:
+        await update.message.reply_text(f"⚠️ Failed to forward message: {e}")
+    except Exception as e:
+        await update.message.reply_text("⚠️ An unexpected error occurred.")
+        logger.error(e)
 
-
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """Log errors for debugging."""
-    logger.error("Exception while handling update:", exc_info=context.error)
-
-
-# ==============================
-# 🚀 Main Function
-# ==============================
+# -------- MAIN FUNCTION --------
 def main():
-    """Start the bot."""
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    # Commands
+    # Command handlers
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("setdb", setdb))
+    app.add_handler(CommandHandler("stats", stats))
 
-    # File handler (documents, videos, audios, photos, animations)
-    app.add_handler(
-        MessageHandler(
-            filters.Document.ALL
-            | filters.Video.ALL
-            | filters.Audio.ALL
-            | filters.PHOTO
-            | filters.ANIMATION,
-            save_file,
-        )
-    )
+    # Message handler - handles all messages
+    app.add_handler(MessageHandler(lambda msg: True, save_message))
 
-    # Log errors
-    app.add_error_handler(error_handler)
-
-    # Run bot
-    logger.info("Bot is starting...")
-    app.run_polling()
-
+    logger.info("Bot started...")
+    app.run_polling(poll_interval=1, timeout=10, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
