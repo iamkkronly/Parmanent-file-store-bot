@@ -58,8 +58,11 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg_id = copied_msg.message_id
         link = f"https://t.me/{context.bot.username}?start={msg_id}"
 
-        # Send inline button link to user
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("📂 Get File", url=link)]])
+        # Inline buttons: Get File & Copy Link side by side
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📂 Get File", url=link),
+            InlineKeyboardButton("🔗 Copy Link", url=link)
+        ]])
         await update.message.reply_text(
             f"✅ Permanent Link Created:{PROMO_TEXT}", reply_markup=keyboard
         )
